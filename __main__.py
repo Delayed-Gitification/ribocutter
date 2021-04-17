@@ -115,27 +115,29 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", nargs='+', default=[], required=True, help="Input fastq(s)")
     parser.add_argument("-o", "--output", type=str, required=True, help="output filename")
-    parser.add_argument("-m", "--max_reads", type=int, required=False, default=-1, help="max reads to examine")
-    parser.add_argument("-g", "--max_guides", type=int, required=False, default=200)
+    parser.add_argument("-r", "--max_reads", type=int, required=False, default=-1, help="max reads to examine")
+    parser.add_argument("-g", "--max_guides", type=int, required=False, default=50)
     parser.add_argument("--min_read_length", type=int, required=False, default=0)
     parser.add_argument("--max_read_length", type=int, required=False, default=1000)
 
     args = parser.parse_args()
 
     if len(args.input) == 1:
-        df = gen_guide_df(fastq_file=args.input, min_rl=args.min_read_length, max_rl=args.max_read_length,
+        df = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
                       max_reads=args.max_reads, max_guides=args.max_guides)
+        print(df)
         df.to_csv(args.output, index=False)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
             df = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
                               max_reads=args.max_reads, max_guides=args.max_guides)
-            df["filename"] = filename
+            df["filename"] = filename.split("/")[-1]
             if i == 0:
                 full_df = df
             else:
                 full_df = full_df.append(df)
+        full_df["average_fraction"] = full_df['fraction'].groupby(full_df["oligo"]).transform('sum')/len(args.input)
         print(full_df)
         full_df.to_csv(args.output, index=False)
 
