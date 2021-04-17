@@ -15,6 +15,25 @@ def rev_c(seq):
     return seq
 
 
+def read_fasta(filename):
+    """
+    This is a simple function written in base python that
+    returns a dictionary made from a fasta file
+    """
+    # Read in the transcript fasta
+    fasta = {}
+    with open(filename, 'r') as file:
+        for line in file:
+            if line.rstrip()[0:1] == ">":
+                this_tx_name = line.rstrip().replace(">", "")
+            else:
+                try:
+                    fasta[this_tx_name] += line.rstrip()
+                except KeyError:
+                    fasta[this_tx_name] = line.rstrip()
+    return fasta
+
+
 def find_guides(seq):
     gg_pos = [i for i, s in enumerate(seq) if seq[i:i + 2] == "GG" and i >= 21]  # not 22, because 0 based
     guides = []
@@ -23,14 +42,12 @@ def find_guides(seq):
     return guides
 
 
-def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides):
-
+def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap):
     seqs = {}  # records which sequences are in fastq, with copy numbers
     guides_d = {}  # how many reads are targeted by each guide
     seq_guide_match = {}  # which guides match the given sequence
     total_reads = 0
-    T7 = "TTCTAATACGACTCACTATA"
-    overlap = "GTTTTAGAGCTAGA"
+
 
     counter = 0
     with dnaio.open(fastq_file) as f:
@@ -110,6 +127,42 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides):
     return df
 
 
+def check_background(df, fasta_d, T7, overlap):
+    """
+    This function generates all the possible oligos for sgRNAs that will target the sequences in the background.
+
+    df is a dataframe containing all the oligos we've designed
+    fasta_d is a dictionary of DNA sequences
+    """
+
+    background_d = {}  # dictionary of guides and how many sequences in background are targeted
+    for oligo in df["oligo"]:
+        background_d[oligo] = 0  # initialise
+
+    counter = 0
+    for name, sequence in fasta_d.items():
+        counter += 1
+        if counter % 1_000 == 0:
+            print(str(counter) + " sequences checked")
+
+        this_guides = find_guides(sequence) + find_guides(rev_c(sequence))
+
+        for guide in this_guides:
+            if not guide[0:1] == "G":
+                oligo = T7 + "G" + guide + overlap
+            else:
+                oligo = T7 + guide + overlap
+
+            if oligo in background_d.keys():
+                background_d[oligo] += 1
+            else:
+                background_d[oligo] = 1
+
+    df["Off_targets"] = df["oligo"].map(background_d)
+
+    return df
+
+
 def main():
     # read arguments
     parser = argparse.ArgumentParser()
@@ -119,27 +172,37 @@ def main():
     parser.add_argument("-g", "--max_guides", type=int, required=False, default=50)
     parser.add_argument("--min_read_length", type=int, required=False, default=0)
     parser.add_argument("--max_read_length", type=int, required=False, default=1000)
+    parser.add_argument("-b", "--background", type=str, required=False, default="None",
+                        help="A fasta file of background sequences that you do not wish to target")
+    parser.add_argument("--t7", default="TTCTAATACGACTCACTATA")
+    parser.add_argument("--overlap", default="GTTTTAGAGCTAGA")
 
     args = parser.parse_args()
 
+    if args.background != "None":
+        print("Reading background fasta")
+        fasta_d = read_fasta(filename=args.background)
+
     if len(args.input) == 1:
-        df = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
-                      max_reads=args.max_reads, max_guides=args.max_guides)
-        print(df)
-        df.to_csv(args.output, index=False)
+        full_df = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
+                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
             df = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
-                              max_reads=args.max_reads, max_guides=args.max_guides)
+                              max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
             df["filename"] = filename.split("/")[-1]
             if i == 0:
                 full_df = df
             else:
                 full_df = full_df.append(df)
-        full_df["average_fraction"] = full_df['fraction'].groupby(full_df["oligo"]).transform('sum')/len(args.input)
-        print(full_df)
-        full_df.to_csv(args.output, index=False)
+        full_df["average_fraction"] = full_df['fraction'].groupby(full_df["oligo"]).transform('sum') / len(args.input)
+
+    if args.background != "None":
+        print("Checking background")
+        full_df = check_background(full_df, fasta_d, T7=args.t7, overlap=args.overlap)
+
+    full_df.to_csv(args.output, index=False)
 
 
 if __name__ == "__main__":
