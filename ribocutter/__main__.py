@@ -176,8 +176,8 @@ def main():
     parser.add_argument("--max_read_length", type=int, required=False, default=1000)
     parser.add_argument("-b", "--background", type=str, required=False, default="None",
                         help="A fasta file of background sequences that you do not wish to target")
-    parser.add_argument("--t7", default="TTCTAATACGACTCACTATA")
-    parser.add_argument("--overlap", default="GTTTTAGAGCTAGA")
+    parser.add_argument("--t7", default="TTCTAATACGACTCACTATA", help="T7 promoter sequence")
+    parser.add_argument("--overlap", default="GTTTTAGAGCTAGA", help="The overlap, compatible with EnGen NEB kit")
     args = parser.parse_args()
 
     if args.background != "None":
@@ -204,7 +204,7 @@ def main():
         full_df = check_background(full_df, fasta_d, T7=args.t7, overlap=args.overlap)
 
     print("Saving to csv")
-    full_df.to_csv(args.output, index=False)
+    full_df.to_csv(args.output+'.csv', index=False)
     print("Complete!")
 
 
