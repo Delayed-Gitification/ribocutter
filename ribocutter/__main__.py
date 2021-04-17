@@ -127,7 +127,14 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
                 "fraction": [guide_fraction[a] for a in final_oligos.keys()], "total_targeted": total_percent}
 
     df = pd.DataFrame.from_dict(final_df)
-    return df
+    
+    # filter seqs df for abundant reads
+    abundant_seqs = {}
+    for seq, copy_no in seqs.items():
+        if copy_no >= 0.001*total_reads:
+            abundant_seqs[seq] = copy_no
+    
+    return df, abundant_seqs
 
 
 def check_background(df, fasta_d, T7, overlap):
@@ -174,25 +181,30 @@ def main():
     parser.add_argument("-g", "--max_guides", type=int, required=False, default=50)
     parser.add_argument("--min_read_length", type=int, required=False, default=0)
     parser.add_argument("--max_read_length", type=int, required=False, default=1000)
+    parser.add_argument("--save_stats", default=False, action="store_true")
     parser.add_argument("-b", "--background", type=str, required=False, default="None",
                         help="A fasta file of background sequences that you do not wish to target")
     parser.add_argument("--t7", default="TTCTAATACGACTCACTATA", help="T7 promoter sequence")
     parser.add_argument("--overlap", default="GTTTTAGAGCTAGA", help="The overlap, compatible with EnGen NEB kit")
     args = parser.parse_args()
-
+    
+    seqs_list = []
+    
     if args.background != "None":
         print("Reading background fasta")
         fasta_d = read_fasta(filename=args.background)
 
     if len(args.input) == 1:
-        full_df = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
+        full_df, seqs = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
                                max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
+        seqs_list.append(seqs)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
-            df = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
+            df, seqs = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
             df["filename"] = filename.split("/")[-1]
+            seqs_list.append(seqs)
             if i == 0:
                 full_df = df
             else:
@@ -202,6 +214,18 @@ def main():
     if args.background != "None":
         print("Checking background")
         full_df = check_background(full_df, fasta_d, T7=args.t7, overlap=args.overlap)
+        
+    if args.save_stats:
+        counter = 0
+        for seqs, filename in zip(seqs_list, args.input):
+            counter += 1
+            seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'name': filename})
+            seq_df = seq_df.sort_values(by='n', ascending=False)
+            if counter == 1:
+                full_seq_df = seq_df
+            else:
+                full_seq_df = full_seq_df.append(seq_df)
+        full_seq_df.to_csv(args.output + '.stats.csv', index=False)
 
     print("Saving to csv")
     full_df.to_csv(args.output+'.csv', index=False)
