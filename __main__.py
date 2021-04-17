@@ -47,9 +47,9 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
     guides_d = {}  # how many reads are targeted by each guide
     seq_guide_match = {}  # which guides match the given sequence
     total_reads = 0
-
-
     counter = 0
+
+    # make a dictionary of each read sequence and how many copies of it we have
     with dnaio.open(fastq_file) as f:
         for record in f:
             if min_rl < len(record.sequence) < max_rl:
@@ -65,52 +65,55 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
                     stopped_early = True
                     break
 
-    # search for guides
-    for key, value in seqs.items():
-        this_guides = find_guides(key) + find_guides(rev_c(key))
+    # Generate all possible guides for all possible sequences
+    for seq, copy_no in seqs.items():
+        this_guides = find_guides(seq) + find_guides(rev_c(seq))
 
         # work out how many reads each guide will target
         for guide in this_guides:
             try:
-                guides_d[guide] += value
+                guides_d[guide] += copy_no
             except KeyError:
-                guides_d[guide] = value
+                guides_d[guide] = copy_no
 
-        try:
-            seq_guide_match[key] += this_guides
-        except KeyError:
-            seq_guide_match[key] = this_guides
+        # save which guides target each sequence
+        seq_guide_match[seq] = this_guides
 
     # now sort this list
     sorted_guides = {k: v for k, v in sorted(guides_d.items(), key=lambda item: item[1], reverse=True)}
 
-    # final list
+    # final list - filter for guides that target the most sequences
     final_guides = {}
     counter = 0
-    for key, value in sorted_guides.items():
+    for guide, copy_no in sorted_guides.items():
         counter += 1
         if counter > max_guides:
             break
         else:
-            final_guides[key] = value
+            final_guides[guide] = copy_no
 
-    # now find how many sequences are actually targeted
-    n = 0
-    guide_fraction = {}
-    for key, value in seqs.items():
+    # now find how many sequences are actually targeted (can't do this just by looking at the final_guide df as
+    # some sequences will be targeted by multiple guides, so would be counted twice or more)
+
+    n = 0  # total reads which are targeted
+    guide_fraction = {}  # what fraction of the library each guide targets
+    for seq, copy_no in seqs.items():
         # find the guides associated with this seq
-        this_guides = seq_guide_match[key]
-        # check if they're in the list of final guides
+        this_guides = seq_guide_match[seq]
+
+        # check if any are in the list of final guides
         combined_set = set(this_guides).intersection(final_guides.keys())
         if len(combined_set) > 0:
-            n += value
+            n += copy_no
+
+            # find what fraction of the library each guide targets
             for guide in combined_set:
                 try:
-                    guide_fraction[guide] += value / total_reads
+                    guide_fraction[guide] += copy_no / total_reads
                 except KeyError:
-                    guide_fraction[guide] = value / total_reads
+                    guide_fraction[guide] = copy_no / total_reads
 
-    total_percent = 100 * n / total_reads
+    total_percent = round(100 * n / total_reads, 2)
     print(str(total_percent) + "% of library targeted by guides")
 
     final_oligos = {}
@@ -164,7 +167,6 @@ def check_background(df, fasta_d, T7, overlap):
 
 
 def main():
-    # read arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", nargs='+', default=[], required=True, help="Input fastq(s)")
     parser.add_argument("-o", "--output", type=str, required=True, help="output filename")
@@ -176,7 +178,6 @@ def main():
                         help="A fasta file of background sequences that you do not wish to target")
     parser.add_argument("--t7", default="TTCTAATACGACTCACTATA")
     parser.add_argument("--overlap", default="GTTTTAGAGCTAGA")
-
     args = parser.parse_args()
 
     if args.background != "None":
@@ -202,7 +203,9 @@ def main():
         print("Checking background")
         full_df = check_background(full_df, fasta_d, T7=args.t7, overlap=args.overlap)
 
+    print("Saving to csv")
     full_df.to_csv(args.output, index=False)
+    print("Complete!")
 
 
 if __name__ == "__main__":
