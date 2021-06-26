@@ -3,7 +3,7 @@ from setuptools import setup
 # This call to setup() does all the work
 setup(
     name="ribocutter",
-    version="0.0.2",
+    version="0.0.3",
     description="Design oligos to produce sgRNAs for abundant sequences in a fastq file",
     #long_description=README,
     long_description_content_type="text/markdown",

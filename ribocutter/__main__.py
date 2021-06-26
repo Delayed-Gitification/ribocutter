@@ -133,8 +133,8 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
     for seq, copy_no in seqs.items():
         if copy_no >= 0.001*total_reads:
             abundant_seqs[seq] = copy_no
-    
-    return df, abundant_seqs
+
+    return df, abundant_seqs, total_reads
 
 
 def check_background(df, fasta_d, T7, overlap):
@@ -189,22 +189,25 @@ def main():
     args = parser.parse_args()
     
     seqs_list = []
+    total_reads_list = []
     
     if args.background != "None":
         print("Reading background fasta")
         fasta_d = read_fasta(filename=args.background)
 
     if len(args.input) == 1:
-        full_df, seqs = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
+        full_df, seqs, total_reads = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
                                max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
         seqs_list.append(seqs)
+        total_reads_list.append(total_reads)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
-            df, seqs = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
+            df, seqs, total_reads = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
             df["filename"] = filename.split("/")[-1]
             seqs_list.append(seqs)
+            total_reads_list.append(total_reads)
             if i == 0:
                 full_df = df
             else:
@@ -217,10 +220,15 @@ def main():
         
     if args.save_stats:
         counter = 0
-        for seqs, filename in zip(seqs_list, args.input):
+        for seqs, filename, total_reads in zip(seqs_list, args.input, total_reads_list):
             counter += 1
-            seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'name': filename})
+            if len(total_reads_list) > 1:
+                seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads':total_reads, 'name': filename})
+            else:
+                seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads':total_reads})
+
             seq_df = seq_df.sort_values(by='n', ascending=False)
+            
             if counter == 1:
                 full_seq_df = seq_df
             else:
