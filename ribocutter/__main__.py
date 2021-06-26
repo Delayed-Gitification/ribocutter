@@ -131,7 +131,7 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
     # filter seqs df for abundant reads
     abundant_seqs = {}
     for seq, copy_no in seqs.items():
-        if copy_no >= 0.001*total_reads:
+        if copy_no >= 0.00001*total_reads:
             abundant_seqs[seq] = copy_no
 
     return df, abundant_seqs, total_reads
