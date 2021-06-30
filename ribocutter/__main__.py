@@ -42,7 +42,8 @@ def find_guides(seq):
     return guides
 
 
-def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap):
+def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap,
+                 a5, a3):
     seqs = {}  # records which sequences are in fastq, with copy numbers
     guides_d = {}  # how many reads are targeted by each guide
     seq_guide_match = {}  # which guides match the given sequence
@@ -54,6 +55,7 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap)
         for record in f:
             if min_rl < len(record.sequence) < max_rl:
                 counter += 1
+                record.sequence = a5 + record.sequence + a3
                 try:
                     seqs[record.sequence] += 1
                 except KeyError:
@@ -178,10 +180,18 @@ def main():
     parser.add_argument("-i", "--input", nargs='+', default=[], required=True, help="Input fastq(s)")
     parser.add_argument("-o", "--output", type=str, required=True, help="output filename")
     parser.add_argument("-r", "--max_reads", type=int, required=False, default=-1, help="max reads to examine")
-    parser.add_argument("-g", "--max_guides", type=int, required=False, default=50)
+    parser.add_argument("-g", "--max_guides", type=int, required=False, default=50, help="The number of guides to "
+                                                                                         "design")
     parser.add_argument("--min_read_length", type=int, required=False, default=0)
     parser.add_argument("--max_read_length", type=int, required=False, default=1000)
-    parser.add_argument("--save_stats", default=False, action="store_true")
+    parser.add_argument("--save_stats", default=False, action="store_true", help="Save a CSV of copy numbers for "
+                                                                                 "the most abundant sequences")
+    parser.add_argument("--a5", default="", help="Include an adaptor sequence for the 5' end containing a PAM "
+                                                 "motif (in reverse complement, i.e. 5'-CCN-3'). This must "
+                                                 "be less than 20 nt, and ideally should be less than 10 nt")
+    parser.add_argument("--a3", default="", help="Include an adaptor sequence for the 3' end containing a PAM "
+                                                 "motif (i.e. 5'-NGG-3'). This must "
+                                                 "be less than 20 nt, and ideally should be less than 10 nt")
     parser.add_argument("-b", "--background", type=str, required=False, default="None",
                         help="A fasta file of background sequences that you do not wish to target")
     parser.add_argument("--t7", default="TTCTAATACGACTCACTATA", help="T7 promoter sequence")
@@ -190,6 +200,14 @@ def main():
     
     seqs_list = []
     total_reads_list = []
+
+    assert len(args.a5) < 20, "5' adaptor is too long - trim from 5' end to below 20 nt (ideally < 10 nt)"
+    assert len(args.a3) < 20, "3' adaptor is too long - trim from 3' end to below 20 nt (ideally < 10 nt)")
+
+    if args.a5 >= 10:
+        print("WARNING - 5' adaptor is very long - this could potentially result in decreased depletion specificity!")
+    if args.a3 >= 10:
+        print("WARNING - 3' adaptor is very long - this could potentially result in decreased depletion specificity!")
     
     if args.background != "None":
         print("Reading background fasta")
@@ -197,14 +215,16 @@ def main():
 
     if len(args.input) == 1:
         full_df, seqs, total_reads = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
-                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
+                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap,
+    a5 = args.a5, a3 = args.a3)
         seqs_list.append(seqs)
         total_reads_list.append(total_reads)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
             df, seqs, total_reads = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
-                              max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap)
+                              max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap,
+                                a5 = args.a5, a3 = args.a3)
             df["filename"] = filename.split("/")[-1]
             seqs_list.append(seqs)
             total_reads_list.append(total_reads)
