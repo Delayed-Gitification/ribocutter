@@ -207,9 +207,9 @@ def main():
     assert len(args.a5) < 20, "5' adaptor is too long - trim from 5' end to below 20 nt (ideally < 10 nt)"
     assert len(args.a3) < 20, "3' adaptor is too long - trim from 3' end to below 20 nt (ideally < 10 nt)"
 
-    if args.a5 >= 10:
+    if len(args.a5) >= 10:
         print("WARNING - 5' adaptor is very long - this could potentially result in decreased depletion specificity!")
-    if args.a3 >= 10:
+    if len(args.a3) >= 10:
         print("WARNING - 3' adaptor is very long - this could potentially result in decreased depletion specificity!")
 
     if args.background != "None":
