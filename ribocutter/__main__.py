@@ -196,7 +196,8 @@ def main():
                         help="A fasta file of background sequences that you do not wish to target")
     parser.add_argument("--t7", default="TTCTAATACGACTCACTATA", help="T7 promoter sequence")
     parser.add_argument("--overlap", default="GTTTTAGAGCTAGA", help="The overlap, compatible with EnGen NEB kit")
-    parser.add_argument("--stats_frac", default=0.0001, help="When using save_stats mode, this is the minimum "
+    parser.add_argument("--stats_frac", default=0.0001, type=int,
+                        help="When using save_stats mode, this is the minimum "
                                                              "fractional abundance of a sequence for it to be recorded"
                                                              " in the csv. Default = 0.0001 (0.01%)")
     args = parser.parse_args()
