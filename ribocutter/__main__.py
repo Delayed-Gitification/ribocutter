@@ -43,7 +43,7 @@ def find_guides(seq):
 
 
 def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap,
-                 a5, a3):
+                 a5, a3, stats_frac=0.0001):
     seqs = {}  # records which sequences are in fastq, with copy numbers
     guides_d = {}  # how many reads are targeted by each guide
     seq_guide_match = {}  # which guides match the given sequence
@@ -129,11 +129,11 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap,
                 "fraction": [guide_fraction[a] for a in final_oligos.keys()], "total_targeted": total_percent}
 
     df = pd.DataFrame.from_dict(final_df)
-    
+
     # filter seqs df for abundant reads
     abundant_seqs = {}
     for seq, copy_no in seqs.items():
-        if copy_no >= 0.00001*total_reads:
+        if copy_no >= stats_frac * total_reads:
             abundant_seqs[seq] = copy_no
 
     return df, abundant_seqs, total_reads
@@ -196,35 +196,42 @@ def main():
                         help="A fasta file of background sequences that you do not wish to target")
     parser.add_argument("--t7", default="TTCTAATACGACTCACTATA", help="T7 promoter sequence")
     parser.add_argument("--overlap", default="GTTTTAGAGCTAGA", help="The overlap, compatible with EnGen NEB kit")
+    parser.add_argument("--stats_frac", default=0.0001, help="When using save_stats mode, this is the minimum "
+                                                             "fractional abundance of a sequence for it to be recorded"
+                                                             " in the csv. Default = 0.0001 (0.01%)")
     args = parser.parse_args()
-    
+
     seqs_list = []
     total_reads_list = []
 
     assert len(args.a5) < 20, "5' adaptor is too long - trim from 5' end to below 20 nt (ideally < 10 nt)"
-    assert len(args.a3) < 20, "3' adaptor is too long - trim from 3' end to below 20 nt (ideally < 10 nt)")
+    assert len(args.a3) < 20, "3' adaptor is too long - trim from 3' end to below 20 nt (ideally < 10 nt)"
 
     if args.a5 >= 10:
         print("WARNING - 5' adaptor is very long - this could potentially result in decreased depletion specificity!")
     if args.a3 >= 10:
         print("WARNING - 3' adaptor is very long - this could potentially result in decreased depletion specificity!")
-    
+
     if args.background != "None":
         print("Reading background fasta")
         fasta_d = read_fasta(filename=args.background)
 
     if len(args.input) == 1:
-        full_df, seqs, total_reads = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length, max_rl=args.max_read_length,
-                               max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap,
-    a5 = args.a5, a3 = args.a3)
+        full_df, seqs, total_reads = gen_guide_df(fastq_file=args.input[0], min_rl=args.min_read_length,
+                                                  max_rl=args.max_read_length,
+                                                  max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7,
+                                                  overlap=args.overlap,
+                                                  a5=args.a5, a3=args.a3, stats_frac=args.stats_frac)
         seqs_list.append(seqs)
         total_reads_list.append(total_reads)
     else:
         for i, filename in enumerate(args.input):
             print("Analysing " + filename)
-            df, seqs, total_reads = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length, max_rl=args.max_read_length,
-                              max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7, overlap=args.overlap,
-                                a5 = args.a5, a3 = args.a3)
+            df, seqs, total_reads = gen_guide_df(fastq_file=filename, min_rl=args.min_read_length,
+                                                 max_rl=args.max_read_length,
+                                                 max_reads=args.max_reads, max_guides=args.max_guides, T7=args.t7,
+                                                 overlap=args.overlap,
+                                                 a5=args.a5, a3=args.a3, stats_frac=args.stats_frac)
             df["filename"] = filename.split("/")[-1]
             seqs_list.append(seqs)
             total_reads_list.append(total_reads)
@@ -237,18 +244,20 @@ def main():
     if args.background != "None":
         print("Checking background")
         full_df = check_background(full_df, fasta_d, T7=args.t7, overlap=args.overlap)
-        
+
     if args.save_stats:
         counter = 0
         for seqs, filename, total_reads in zip(seqs_list, args.input, total_reads_list):
             counter += 1
             if len(total_reads_list) > 1:
-                seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads':total_reads, 'name': filename})
+                seq_df = pd.DataFrame.from_dict(
+                    {'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads': total_reads, 'name': filename})
             else:
-                seq_df = pd.DataFrame.from_dict({'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads':total_reads})
+                seq_df = pd.DataFrame.from_dict(
+                    {'Sequence': seqs.keys(), 'n': seqs.values(), 'total_reads': total_reads})
 
             seq_df = seq_df.sort_values(by='n', ascending=False)
-            
+
             if counter == 1:
                 full_seq_df = seq_df
             else:
@@ -256,7 +265,7 @@ def main():
         full_seq_df.to_csv(args.output + '.stats.csv', index=False)
 
     print("Saving to csv")
-    full_df.to_csv(args.output+'.csv', index=False)
+    full_df.to_csv(args.output + '.csv', index=False)
     print("Complete!")
 
 
