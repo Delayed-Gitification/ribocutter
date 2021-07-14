@@ -125,8 +125,9 @@ def gen_guide_df(fastq_file, min_rl, max_rl, max_reads, max_guides, T7, overlap,
         else:
             final_oligos[guide] = T7 + guide + overlap
 
-    final_df = {"oligo": list(final_oligos.values()), "target": list(final_oligos.keys()),
-                "fraction": [guide_fraction[a] for a in final_oligos.keys()], "total_targeted": total_percent}
+    final_df = {"oligo_to_order": list(final_oligos.values()), "target": list(final_oligos.keys()),
+                "fraction_oligo_targets": [guide_fraction[a] for a in final_oligos.keys()],
+                "total_library_fraction_targeted": total_percent}
 
     df = pd.DataFrame.from_dict(final_df)
 
