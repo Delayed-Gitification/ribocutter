@@ -200,7 +200,7 @@ def main():
     parser.add_argument("--stats_frac", default=0.0001, type=float,
                         help="When using save_stats mode, this is the minimum "
                                                              "fractional abundance of a sequence for it to be recorded"
-                                                             " in the csv. Default = 0.0001 (0.01%)")
+                                                             " in the csv. Default = 0.0001 (0.01percent)")
     args = parser.parse_args()
 
     seqs_list = []
