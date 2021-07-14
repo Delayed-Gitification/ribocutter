@@ -1,1 +1,11 @@
-# ribocutter
+# Ribocutter
+
+Ribocutter is a tool for designing sgRNA templates to deplete unwanted abundant contaminants from a Ribo-seq (or similar) high-throughput sequencing library. Using an input fastq (that MUST be adaptor trimmed first!), it automatically designs ready-to-order sgRNA templates for use with the NEB single-tube sgRNA synthesis kit. See our paper for more information on the actual experimental protocol
+
+# Usage:
+
+Ribocutter has two required arguments: an input fastq.gz file, and the name of the output. Additionally, you can specificy the exact number of guides you'd like to order and, if you have particularly short contaminating sequences, you can add the flanking 3' and 5' sequences too (which will ideally contain a PAM motif). Note that adding these flanking sequences will increase the risk of off-target depletion - keep them short!
+
+Ribocutter will determine the fraction of the sequencing library that is targeted by your guides. As a rule of thumb, if f is the fraction of reads targeted by guides, the fold-increase in fraction of useful reads will be 1/(1-f). So, if f = 0.67 (67%), then the increase will be 1/(1-0.67) = 3-fold increase. If your guides only target a small fraction of the library (significantly less than 50%) then it's probably not worth your time to apply the protocol as the fold increase will be fairly small - of course you can increase the fraction of reads targeted by increasing the number of guides used (oligos are cheap anyway...)
+
+Additionally, you can use ribocutter to produce useful statistics about copy numbers of abundant sequences in your library, by using the --save_stats option.
