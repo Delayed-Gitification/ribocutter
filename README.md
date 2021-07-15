@@ -8,6 +8,8 @@ Ribocutter has two required arguments: an input fastq.gz file, and the name of t
 
 Ribocutter will determine the fraction of the sequencing library that is targeted by your guides. As a rule of thumb, if f is the fraction of reads targeted by guides, the fold-increase in fraction of useful reads will be 1/(1-f). So, if f = 0.67 (67%), then the increase will be 1/(1-0.67) = 3-fold increase. If your guides only target a small fraction of the library (significantly less than 50%) then it's probably not worth your time to apply the protocol as the fold increase will be fairly small - of course you can increase the fraction of reads targeted by increasing the number of guides used (oligos are cheap anyway...)
 
+You can also include a fasta of background sequences that you do not wish to target. However, while this seems like a good option, I would actually advise against this - low-level off-target depletion is a small price to pay for a large increase in useful reads, and your libraries are treated after multiplexing anyway, so this depletion should not lead to erroneous detection of differentially translated genes.
+
 Additionally, you can use ribocutter to produce useful statistics about copy numbers of abundant sequences in your library, by using the --save_stats option.
 
 # Installation:
