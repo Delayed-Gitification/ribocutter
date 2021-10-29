@@ -241,7 +241,7 @@ def main():
                 full_df = df
             else:
                 full_df = full_df.append(df)
-        full_df["average_fraction"] = full_df['fraction'].groupby(full_df["oligo"]).transform('sum') / len(args.input)
+        full_df["average_fraction"] = full_df['fraction_oligo_targets'].groupby(full_df["oligo_to_order"]).transform('sum') / len(args.input)
 
     if args.background != "None":
         print("Checking background")
