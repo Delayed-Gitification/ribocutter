@@ -1,6 +1,7 @@
 import dnaio
 import pandas as pd
 import argparse
+import distance
 
 
 def rev_c(seq):
@@ -174,6 +175,15 @@ def check_background(df, fasta_d, T7, overlap):
     df["Off_targets"] = df["oligo"].map(background_d)
 
     return df
+
+
+def check_illumina(df, illumina_seqs):
+    """
+    This function checks that the sgRNAs do not target Illumina (or user provided) sequences, 
+    which could lead to destruction of the whole library. It is a more intensive check than
+    previous methods.
+    """
+    
 
 
 def main():
